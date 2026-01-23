@@ -2,37 +2,42 @@ import {
 	configureOAuth,
 	createAuthorizationUrl,
 	finalizeAuthorization,
-	resolveFromIdentity,
-	type Session,
 	OAuthUserAgent,
-	getSession
+	getSession,
+	deleteStoredSession
 } from '@atcute/oauth-browser-client';
-import { dev } from '$app/environment';
-import { XRPC } from '@atcute/client';
-import { metadata } from './const';
+import { AppBskyActorDefs } from '@atcute/bluesky';
+import type { ActorIdentifier, Did } from '@atcute/lexicons';
 
-export const client = $state({
+import {
+	CompositeDidDocumentResolver,
+	CompositeHandleResolver,
+	DohJsonHandleResolver,
+	LocalActorResolver,
+	PlcDidDocumentResolver,
+	WebDidDocumentResolver,
+	WellKnownHandleResolver
+} from '@atcute/identity-resolver';
+
+import { Client } from '@atcute/client';
+
+import { dev } from '$app/environment';
+import { metadata } from './metadata';
+import { replaceState } from '$app/navigation';
+import { getDetailedProfile } from './atproto';
+import { signUpPDS } from './settings';
+
+export const user = $state({
 	agent: null as OAuthUserAgent | null,
-	session: null as Session | null,
-	rpc: null as XRPC | null,
-	profile: null as {
-		handle: string;
-		did: string;
-		createdAt: string;
-		description?: string;
-		displayName?: string;
-		banner?: string;
-		avatar?: string;
-		followersCount?: number;
-		followsCount?: number;
-		postsCount?: number;
-	} | null,
+	client: null as Client | null,
+	profile: null as AppBskyActorDefs.ProfileViewDetailed | null | undefined,
 	isInitializing: true,
-	isLoggedIn: false
+	isLoggedIn: false,
+	did: undefined as Did | undefined
 });
 
 export async function initClient() {
-	client.isInitializing = true;
+	user.isInitializing = true;
 
 	const clientId = dev
 		? `http://localhost` +
@@ -40,16 +45,32 @@ export async function initClient() {
 			`&scope=${encodeURIComponent(metadata.scope)}`
 		: metadata.client_id;
 
+	const handleResolver = new CompositeHandleResolver({
+		methods: {
+			dns: new DohJsonHandleResolver({ dohUrl: 'https://mozilla.cloudflare-dns.com/dns-query' }),
+			http: new WellKnownHandleResolver()
+		}
+	});
+
 	configureOAuth({
 		metadata: {
 			client_id: clientId,
 			redirect_uri: `${dev ? 'http://127.0.0.1:5179' : metadata.redirect_uris[0]}`
-		}
+		},
+		identityResolver: new LocalActorResolver({
+			handleResolver: handleResolver,
+			didDocumentResolver: new CompositeDidDocumentResolver({
+				methods: {
+					plc: new PlcDidDocumentResolver(),
+					web: new WebDidDocumentResolver()
+				}
+			})
+		})
 	});
 
 	const params = new URLSearchParams(location.hash.slice(1));
 
-	const did = localStorage.getItem('last-login') ?? undefined;
+	const did = (localStorage.getItem('current-login') as Did) ?? undefined;
 
 	if (params.size > 0) {
 		await finalizeLogin(params, did);
@@ -57,117 +78,43 @@ export async function initClient() {
 		await resumeSession(did);
 	}
 
-	client.isInitializing = false;
+	user.isInitializing = false;
 }
 
-export async function login(handle: string) {
+export async function login(handle: ActorIdentifier) {
+	console.log('login in with', handle);
 	if (handle.startsWith('did:')) {
-		if (handle.length > 5) await authorizationFlow(handle);
-		else throw new Error('DID must be at least 6 characters');
+		if (handle.length < 6) throw new Error('DID must be at least 6 characters');
+
+		await startAuthorization(handle as ActorIdentifier);
 	} else if (handle.includes('.') && handle.length > 3) {
 		const processed = handle.startsWith('@') ? handle.slice(1) : handle;
-		if (processed.length > 3) await authorizationFlow(processed);
-		else throw new Error('Handle must be at least 4 characters');
+		if (processed.length < 4) throw new Error('Handle must be at least 4 characters');
+
+		await startAuthorization(processed as ActorIdentifier);
 	} else if (handle.length > 3) {
 		const processed = (handle.startsWith('@') ? handle.slice(1) : handle) + '.bsky.social';
-		await authorizationFlow(processed);
+		await startAuthorization(processed as ActorIdentifier);
 	} else {
-		throw new Error('Please provide a valid handle, DID, or PDS URL');
+		throw new Error('Please provide a valid handle or DID.');
 	}
 }
 
-export async function logout() {
-	const currentAgent = client.agent;
-	if (currentAgent) {
-		const did = currentAgent.session.info.sub;
-
-		localStorage.removeItem('last-login');
-		localStorage.removeItem(`profile-${did}`);
-
-		await currentAgent.signOut();
-		client.session = null;
-		client.agent = null;
-		client.profile = null;
-
-		client.isLoggedIn = false;
-	} else {
-		throw new Error('Not signed in');
-	}
+export async function signup() {
+	await startAuthorization();
 }
 
-async function finalizeLogin(params: URLSearchParams, did?: string) {
-	try {
-		history.replaceState(null, '', location.pathname + location.search);
-
-		const session = await finalizeAuthorization(params);
-		client.session = session;
-
-		setAgentAndXRPC(session);
-		localStorage.setItem('last-login', session.info.sub);
-
-		await loadProfile(session.info.sub);
-
-		client.isLoggedIn = true;
-	} catch (error) {
-		console.error('error finalizing login', error);
-		if (did) {
-			await resumeSession(did);
-		}
-	}
-}
-
-async function resumeSession(did: string) {
-	try {
-		const session = await getSession(did as `did:${string}`, { allowStale: true });
-		client.session = session;
-
-		setAgentAndXRPC(session);
-
-		await loadProfile(session.info.sub);
-
-		client.isLoggedIn = true;
-	} catch (error) {
-		console.error('error resuming session', error);
-	}
-}
-
-function setAgentAndXRPC(session: Session) {
-	client.agent = new OAuthUserAgent(session);
-
-	client.rpc = new XRPC({ handler: client.agent });
-}
-
-async function loadProfile(actor: string) {
-	// check if profile is already loaded in local storage
-	const profile = localStorage.getItem(`profile-${actor}`);
-	if (profile) {
-		console.log('loading profile from local storage');
-		client.profile = JSON.parse(profile);
-		return;
-	}
-
-	console.log('loading profile from server');
-	const response = await client.rpc?.request({
-		type: 'get',
-		nsid: 'app.bsky.actor.getProfile',
-		params: { actor }
-	});
-
-	if (response) {
-		client.profile = response.data;
-		localStorage.setItem(`profile-${actor}`, JSON.stringify(response.data));
-	}
-}
-
-async function authorizationFlow(input: string) {
-	const { identity, metadata: meta } = await resolveFromIdentity(input);
-
+async function startAuthorization(identity?: ActorIdentifier) {
 	const authUrl = await createAuthorizationUrl({
-		metadata: meta,
-		identity: identity,
+		target: identity
+			? { type: 'account', identifier: identity }
+			: { type: 'pds', serviceUrl: signUpPDS },
+		// @ts-expect-error - new stuff
+		prompt: identity ? undefined : 'create',
 		scope: metadata.scope
 	});
 
+	// let browser persist local storage
 	await new Promise((resolve) => setTimeout(resolve, 200));
 
 	window.location.assign(authUrl);
@@ -179,4 +126,103 @@ async function authorizationFlow(input: string) {
 
 		window.addEventListener('pageshow', listener, { once: true });
 	});
+}
+
+export async function logout() {
+	const currentAgent = user.agent;
+	if (currentAgent) {
+		const did = currentAgent.session.info.sub;
+
+		localStorage.removeItem('current-login');
+		localStorage.removeItem(`profile-${did}`);
+
+		try {
+			await currentAgent.signOut();
+		} catch {
+			deleteStoredSession(did);
+		}
+
+		user.agent = null;
+		user.profile = null;
+		user.isLoggedIn = false;
+	} else {
+		console.error('trying to logout, but user not signed in');
+		return false;
+	}
+}
+
+async function finalizeLogin(params: URLSearchParams, did?: Did) {
+	try {
+		const { session } = await finalizeAuthorization(params);
+		replaceState(location.pathname + location.search, {});
+
+		user.agent = new OAuthUserAgent(session);
+		user.did = session.info.sub;
+		user.client = new Client({ handler: user.agent });
+
+		localStorage.setItem('current-login', session.info.sub);
+
+		await loadProfile(session.info.sub);
+
+		user.isLoggedIn = true;
+
+		try {
+			if (!user.profile) return;
+			const recentLogins = JSON.parse(localStorage.getItem('recent-logins') || '{}');
+
+			recentLogins[session.info.sub] = user.profile;
+
+			localStorage.setItem('recent-logins', JSON.stringify(recentLogins));
+		} catch {
+			console.log('failed to save to recent logins');
+		}
+	} catch (error) {
+		console.error('error finalizing login', error);
+		if (did) {
+			await resumeSession(did);
+		}
+	}
+}
+
+async function resumeSession(did: Did) {
+	try {
+		const session = await getSession(did, { allowStale: true });
+
+		if (session.token.expires_at && session.token.expires_at < Date.now()) {
+			throw Error('session expired');
+		}
+
+		if (session.token.scope !== metadata.scope) {
+			throw Error('scope changed, signing out!');
+		}
+
+		user.agent = new OAuthUserAgent(session);
+		user.did = session.info.sub;
+		user.client = new Client({ handler: user.agent });
+
+		await loadProfile(session.info.sub);
+
+		user.isLoggedIn = true;
+	} catch (error) {
+		console.error('error resuming session', error);
+		deleteStoredSession(did);
+	}
+}
+
+async function loadProfile(actor: Did) {
+	// check if profile is already loaded in local storage
+	const profile = localStorage.getItem(`profile-${actor}`);
+	if (profile) {
+		try {
+			user.profile = JSON.parse(profile);
+			return;
+		} catch {
+			console.error('error loading profile from local storage');
+		}
+	}
+
+	const response = await getDetailedProfile();
+
+	user.profile = response;
+	localStorage.setItem(`profile-${actor}`, JSON.stringify(response));
 }

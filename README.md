@@ -1,7 +1,7 @@
 # svelte atproto client oauth demo
 
 this is a scaffold for how to get client side oauth working with sveltekit and atproto 
-using the [`@atcute/oauth-browser-client`](https://github.com/mary-ext/atcute) library.
+using the [`atcute`](https://github.com/mary-ext/atcute) libraries.
 
 useful when you want people to login to your static sveltekit site.
 
@@ -10,14 +10,12 @@ useful when you want people to login to your static sveltekit site.
 ### either clone this repo
 
 1. clone this repo
-2. run `npm install`
-3. run `npm run dev`
+2. run `pnpm install`
+3. run `pnpm run dev`
 4. go to `http://127.0.0.1:5179`
-5. for deployment change the `SITE_URL` variable in `src/lib/oauth/const.ts` 
-(e.g. for github pages: `https://your-username.github.io`) and set your base in `svelte.config.js` 
-(e.g. for github pages: `base: '/your-repo-name/'`) while keeping it as `''` in development.
+5. if necessary change base in `svelte.config.js`
 
-```
+```js
 const config = {
 	// ...
 
@@ -34,12 +32,14 @@ const config = {
 ### or manually install in your own project
 
 1. copy the `src/lib/oauth` folder into your own project
-2. also copy the `src/routes/client-metadata.json` folder into your project
-3. add the following to your `src/routes/+layout.svelte`
+2. also copy the `src/routes/oauth-client-metadata.json.json` folder into your project
+3. initialize the client in your `src/routes/+layout.svelte`
 
 ```svelte
 <script>
 	import { initClient } from '$lib/oauth';
+
+	let { children } = $props();
 
 	onMount(() => {
 		initClient();
@@ -63,14 +63,12 @@ export default defineConfig({
 5. install the dependencies
 
 ```bash
-npm install @atcute/oauth-browser-client @atcute/client
+npm install @atcute/atproto @atcute/bluesky @atcute/identity-resolver @atcute/lexicons @atcute/oauth-browser-client @atcute/client
 ```
 
-6. for deployment change the `SITE_URL` variable in `src/lib/oauth/const.ts` 
-(e.g. for github pages: `https://your-username.github.io`) and set your base in `svelte.config.js` 
-(e.g. for github pages: `base: '/your-repo-name/'`) while keeping it as `''` in development.
+6. set your base in `svelte.config.js` (e.g. for github pages: `base: '/your-repo-name/'`) while keeping it as `''` in development.
 
-```
+```ts
 const config = {
 	// ...
 
@@ -89,16 +87,17 @@ const config = {
 
 ### login flow
 
-Either use the `LoginModal` component to render a login modal or use the `client` object to handle the login flow yourself.
+Either use the `LoginModal` component to render a login modal or use the `user` object to handle the login flow yourself.
 
 ```ts
 // handlin login flow yourself
-import { client } from '$lib/oauth';
+import { user } from '$lib/oauth';
 
 // methods:
-client.login(handle); // login the user
-client.isLoggedIn; // check if the user is logged in
-client.logout(); // logout the user
+user.login(handle);
+user.signup();
+user.isLoggedIn;
+user.logout();
 ```
 
 LoginModal is a component that renders a login modal, add it for a quick login flow. 
@@ -116,20 +115,15 @@ LoginModal is a component that renders a login modal, add it for a quick login f
 
 ### make requests
 
-Get the user's profile and make requests with the `client.rpc` object.
+Get the user's profile and make requests with the `user.client` object.
 
 ```ts
-import { client } from '$lib/oauth';
+import { user } from '$lib/oauth';
 
-// get the user's profile
-const profile = client.profile;
-
-// make requests with the client.rpc object
-const response = await client.rpc.request({
-	type: 'get',
-	nsid: 'app.bsky.feed.getActorLikes',
+// make requests with the user.client object
+const response = await user.client.get('app.bsky.feed.getActorLikes', {
 	params: {
-		actor: client.profile?.did,
+		actor: client.did,
 		limit: 10
 	}
 });

@@ -7,48 +7,76 @@
 </script>
 
 <script lang="ts">
-	import { login } from '$lib/oauth/auth.svelte';
+	import { login, signup } from '$lib/oauth/auth.svelte';
+	import type { ActorIdentifier, Did } from '@atcute/lexicons';
 	import Button from './Button.svelte';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import SecondaryButton from './SecondaryButton.svelte';
+	import HandleInput from './HandleInput.svelte';
+	import { AppBskyActorDefs } from '@atcute/bluesky';
+	import Avatar from './Avatar.svelte';
+
+	let { signIn = true, loginOnSelect = true }: { signIn?: boolean; loginOnSelect?: boolean } =
+		$props();
 
 	let value = $state('');
 	let error: string | null = $state(null);
-	let loading = $state(false);
+	let loadingLogin = $state(false);
+	let loadingSignup = $state(false);
 
-	async function onSubmit(event: Event) {
-		event.preventDefault();
-		if (loading) return;
+	async function onSubmit(event?: Event) {
+		event?.preventDefault();
+		if (loadingLogin) return;
 
 		error = null;
-		loading = true;
+		loadingLogin = true;
 
 		try {
-			await login(value);
+			await login(value as ActorIdentifier);
 		} catch (err) {
 			error = err instanceof Error ? err.message : String(err);
 		} finally {
-			loading = false;
+			loadingLogin = false;
 		}
 	}
 
-	let input: HTMLInputElement | undefined = $state();
+	let input: HTMLInputElement | null = $state(null);
 
 	$effect(() => {
 		if (!loginModalState.visible) {
 			error = null;
 			value = '';
-			loading = false;
+			loadingLogin = false;
+			selectedActor = undefined;
 		} else {
 			tick().then(() => {
 				input?.focus();
 			});
 		}
 	});
+
+	let selectedActor: AppBskyActorDefs.ProfileViewBasic | undefined = $state();
+
+	let recentLogins: Record<Did, AppBskyActorDefs.ProfileViewBasic> = $state({});
+
+	onMount(() => {
+		try {
+			recentLogins = JSON.parse(localStorage.getItem('recent-logins') || '{}');
+		} catch {}
+	});
+
+	function removeRecentLogin(did: Did) {
+		try {
+			delete recentLogins[did];
+
+			localStorage.setItem('recent-logins', JSON.stringify(recentLogins));
+		} catch {}
+	}
 </script>
 
 {#if loginModalState.visible}
 	<div
-		class="fixed inset-0 z-[100] w-screen overflow-y-auto"
+		class="fixed inset-0 z-100 w-screen overflow-y-auto"
 		aria-labelledby="modal-title"
 		role="dialog"
 		aria-modal="true"
@@ -59,7 +87,7 @@
 			aria-hidden="true"
 		></div>
 
-		<div class="pointer-events-none fixed inset-0 z-10 w-screen overflow-y-auto">
+		<div class="pointer-events-none fixed inset-0 isolate z-10 w-screen overflow-y-auto">
 			<div
 				class="flex min-h-full w-screen items-end justify-center p-4 text-center sm:items-center sm:p-0"
 			>
@@ -67,49 +95,134 @@
 					class="pointer-events-auto relative w-full transform overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100 px-4 pt-4 pb-4 text-left shadow-xl transition-all sm:my-8 sm:max-w-sm sm:p-6 dark:border-neutral-700 dark:bg-neutral-800"
 				>
 					<h3 class="font-semibold text-neutral-900 dark:text-neutral-100" id="modal-title">
-						Login With Bluesky
+						Login with your internet handle
 					</h3>
-					<form onsubmit={onSubmit} class="mt-4 flex w-full flex-col gap-2">
-						<div class="w-full">
-							<label
-								for="bluesky-handle"
-								class="block text-sm/6 font-medium text-neutral-900 dark:text-neutral-100"
-								>Your handle</label
-							>
-							<div class="mt-2">
-								<input
-									bind:this={input}
-									type="text"
-									name="bluesky-handle"
-									id="bluesky-handle"
-									placeholder="yourname.bsky.social"
+
+					<div class="mt-2 mb-2 text-xs font-light text-neutral-800">e.g. your bluesky account</div>
+
+					{#if Object.keys(recentLogins).length > 0 && !loadingLogin && !selectedActor}
+						<div class="mt-2 mb-2 text-sm font-medium">Recent logins</div>
+						<div class="flex flex-col gap-2">
+							{#each Object.values(recentLogins) as recentLogin}
+								<div class="group">
+									<div
+										class="group-hover:bg-base-300 bg-base-200 border-base-300 relative flex h-10 w-full items-center justify-between gap-2 rounded-full border px-2 font-semibold transition-colors duration-100"
+									>
+										<div class="flex items-center gap-2">
+											<Avatar src={recentLogin.avatar} />
+											{recentLogin.handle}
+										</div>
+										<button
+											class="z-20 cursor-pointer"
+											onclick={() => {
+												value = recentLogin.handle;
+												selectedActor = recentLogin;
+												onSubmit();
+											}}
+										>
+											<div class="absolute inset-0 h-full w-full"></div>
+											<span class="sr-only">login</span>
+										</button>
+
+										<button
+											onclick={() => {
+												removeRecentLogin(recentLogin.did);
+											}}
+											class="z-30 cursor-pointer rounded-full p-0.5"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke-width="1.5"
+												stroke="currentColor"
+												class="size-3"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M6 18 18 6M6 6l12 12"
+												/>
+											</svg>
+											<span class="sr-only">sign in with other account</span>
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+
+						<div class="mt-4 text-sm font-medium">Or new handle</div>
+					{/if}
+
+					<form onsubmit={onSubmit} class="mt-2 flex w-full flex-col gap-2">
+						{#if !selectedActor}
+							<div class="w-full">
+								<HandleInput
 									bind:value
-									class="block w-full rounded-full border-0 py-1.5 text-neutral-900 caret-rose-500 shadow-sm ring-1 ring-neutral-300 ring-inset placeholder:text-neutral-500 focus:ring-2 focus:ring-rose-600 focus:ring-inset sm:text-sm/6 dark:bg-neutral-950 dark:text-neutral-100 dark:ring-neutral-700 dark:placeholder:text-neutral-600"
+									onselected={(a) => {
+										selectedActor = a;
+										value = a.handle;
+										if (loginOnSelect) onSubmit();
+									}}
+									bind:ref={input}
 								/>
 							</div>
-						</div>
+						{:else}
+							<div
+								class="bg-base-200 border-base-300 flex h-10 w-full items-center justify-between gap-2 rounded-full border px-2 font-semibold"
+							>
+								<div class="flex items-center gap-2">
+									<Avatar src={selectedActor.avatar} />
+									{selectedActor.handle}
+								</div>
+
+								<button
+									onclick={() => {
+										selectedActor = undefined;
+										value = '';
+									}}
+									class="cursor-pointer rounded-full p-0.5"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="size-3"
+									>
+										<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+									</svg>
+									<span class="sr-only">sign in with other account</span>
+								</button>
+							</div>
+						{/if}
 
 						{#if error}
 							<p class="text-sm font-semibold text-rose-500">{error}</p>
 						{/if}
 
-						<div class="mt-5 sm:mt-6">
-							<Button type="submit" disabled={loading} class="w-full"
-								>{loading ? 'Loading...' : 'Login'}</Button
+						<div class="mt-4">
+							<Button type="submit" disabled={loadingLogin} class="w-full"
+								>{loadingLogin ? 'Loading...' : 'Login'}</Button
 							>
 						</div>
 
-						<div class="mt-4 border-t border-neutral-200 pt-4 text-sm leading-7 text-neutral-800">
-							Don't have an account?
-							<br />
-							<a
-								href="https://bsky.app"
-								target="_blank"
-								class="font-medium text-rose-600 hover:text-rose-500"
-							>
-								Create one on bluesky
-							</a>, then sign in here.
-						</div>
+						{#if signIn}
+							<div class="mt-4 border-t border-neutral-200 pt-4 text-sm leading-7 text-neutral-800">
+								Don't have an account?
+								<div class="mt-3">
+									<SecondaryButton
+										onclick={async () => {
+											loadingSignup = true;
+											await signup();
+										}}
+										disabled={loadingSignup}
+										class="w-full">{loadingSignup ? 'Loading...' : 'Sign Up'}</SecondaryButton
+									>
+								</div>
+							</div>
+						{/if}
 					</form>
 				</div>
 			</div>

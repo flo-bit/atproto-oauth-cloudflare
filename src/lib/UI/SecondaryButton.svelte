@@ -10,7 +10,7 @@
 
 <button
 	class={[
-		'bg-rose-600 text-white hover:bg-rose-500 focus-visible:outline-rose-600',
+		'bg-neutral-300 text-black transition-colors duration-100 hover:bg-neutral-200 focus-visible:outline-neutral-600',
 		'inline-flex cursor-pointer justify-center rounded-full px-3 py-2 text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
 		className
 	]}
