@@ -1,4 +1,3 @@
-import { resolve } from '$app/paths';
 import { permissions, REDIRECT_PATH, SITE } from './settings';
 
 function constructScope() {
@@ -24,13 +23,15 @@ function constructScope() {
 	return scope;
 }
 
-export const metadata = {
-	client_id: SITE + resolve('/oauth-client-metadata.json'),
-	redirect_uris: [SITE + resolve(REDIRECT_PATH)],
-	scope: constructScope(),
-	grant_types: ['authorization_code', 'refresh_token'],
-	response_types: ['code'],
-	token_endpoint_auth_method: 'none',
-	application_type: 'web',
-	dpop_bound_access_tokens: true
-};
+export const scope = constructScope();
+
+export function constructMetadata() {
+	return {
+		client_id: SITE + '/oauth-client-metadata.json',
+		redirect_uris: [SITE + REDIRECT_PATH] as [string],
+		scope,
+		jwks_uri: SITE + '/oauth/jwks.json'
+	};
+}
+
+export const metadata = constructMetadata();

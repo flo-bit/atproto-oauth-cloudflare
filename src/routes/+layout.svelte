@@ -1,14 +1,13 @@
 <script lang="ts">
 	import '../app.css';
 
-	import { onMount } from 'svelte';
-	import { initClient } from '$lib/atproto';
+	import { initFromServer } from '$lib/atproto';
 	import LoginModal from '$lib/atproto/UI/LoginModal.svelte';
 
-	let { children } = $props();
+	let { children, data } = $props();
 
-	onMount(() => {
-		initClient();
+	$effect(() => {
+		initFromServer({ did: data.did, profile: data.profile });
 	});
 </script>
 

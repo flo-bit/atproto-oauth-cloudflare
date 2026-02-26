@@ -1,5 +1,10 @@
 {
-	"permissions": {
-		"allow": ["Bash(npx tsc:*)"]
-	}
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "mcp__plugin_svelte_svelte__svelte-autofixer"
+    ]
+  }
 }

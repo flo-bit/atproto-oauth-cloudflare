@@ -11,7 +11,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
-		"lint": "prettier --check . && eslint ."
+		"lint": "prettier --check . && eslint .",
+		"generate-key": "npx tsx scripts/generate-key.ts"
 	},
 	"devDependencies": {
 		"@atcute/atproto": "^3.1.10",
@@ -19,12 +20,12 @@
 		"@atcute/client": "^4.2.1",
 		"@atcute/identity-resolver": "^1.2.2",
 		"@atcute/lexicons": "^1.2.6",
-		"@atcute/oauth-browser-client": "^2.0.3",
+		"@atcute/oauth-node-client": "^1.1.0",
 		"@atcute/tid": "^1.1.1",
+		"@cloudflare/workers-types": "^4.20260304.0",
 		"@eslint/compat": "^2.0.1",
 		"@eslint/js": "^9.39.2",
-		"@sveltejs/adapter-auto": "^7.0.0",
-		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/adapter-cloudflare": "^7.2.8",
 		"@sveltejs/kit": "^2.50.0",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/forms": "^0.5.11",
@@ -40,9 +41,11 @@
 		"svelte": "^5.48.0",
 		"svelte-check": "^4.3.5",
 		"tailwindcss": "^4.1.18",
+		"tsx": "^4.19.0",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.53.1",
-		"vite": "^7.3.1"
+		"vite": "^7.3.1",
+		"wrangler": "^4.0.0"
 	},
 	"license": "MIT"
 }

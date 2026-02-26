@@ -1,0 +1,1 @@
+CLIENT_ASSERTION_KEY={"kty":"EC","crv":"P-256","x":"...","y":"...","d":"...","kid":"main-key","alg":"ES256"}

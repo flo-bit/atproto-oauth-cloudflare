@@ -1,4 +1,4 @@
-export { user, login, signup, logout, initClient } from './auth.svelte';
+export { user, login, signup, logout, initFromServer } from './auth.svelte';
 export { metadata } from './metadata';
 
 export {
