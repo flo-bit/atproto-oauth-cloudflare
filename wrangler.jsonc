@@ -32,12 +32,7 @@
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
-	"vars": {
-		"PUBLIC_HANDLE": "blento.app",
-		"PUBLIC_IS_SELFHOSTED": "",
-		"PUBLIC_DOMAIN": "https://blento.app",
-		"PUBLIC_GIPHY_API_TOKEN": "ltXijv1bkNPrEgnpJ0tIdLWXjnAeE7bL"
-	},
+	"vars": {},
 	"kv_namespaces": [
 		{
 			"binding": "OAUTH_SESSIONS",
