@@ -1366,7 +1366,7 @@ Add this inside `defineConfig()`. Do not remove existing plugins or config.
 Add or merge these fields:
 
 - Add `"nodejs_compat_v2"` to `compatibility_flags` (create the array if it doesn't exist)
-- Add `"OAUTH_PUBLIC_URL": "https://your-domain.com"` to `vars` (create `vars` if needed)
+- Do NOT add `OAUTH_PUBLIC_URL` to vars — it is only needed for production deployment and the user will set it themselves later. In dev mode without it, the app uses a loopback client automatically.
 - Add KV namespace placeholders to `kv_namespaces`:
 
 ```jsonc
