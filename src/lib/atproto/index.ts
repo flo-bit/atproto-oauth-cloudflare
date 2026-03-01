@@ -3,6 +3,7 @@ export { user, login, signup, logout } from './auth.svelte';
 export {
 	parseUri,
 	resolveHandle,
+	actorToDid,
 	getPDS,
 	getDetailedProfile,
 	getClient,

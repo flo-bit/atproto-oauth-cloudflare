@@ -182,6 +182,7 @@ export async function logout() {
 
 ```ts
 import { parseResourceUri, type Did, type Handle } from '@atcute/lexicons';
+import { isDid } from '@atcute/lexicons/syntax';
 import { user } from './auth.svelte';
 import { DOH_RESOLVER, type AllowedCollection } from './settings';
 import {
@@ -220,6 +221,14 @@ export async function resolveHandle({ handle }: { handle: Handle }) {
 
 	const data = await handleResolver.resolve(handle);
 	return data;
+}
+
+/**
+ * Returns a DID given a handle or DID string.
+ */
+export async function actorToDid(actor: string): Promise<Did> {
+	if (isDid(actor)) return actor;
+	return await resolveHandle({ handle: actor as Handle });
 }
 
 const didResolver = new CompositeDidDocumentResolver({
@@ -511,6 +520,7 @@ export { user, login, signup, logout } from './auth.svelte';
 export {
 	parseUri,
 	resolveHandle,
+	actorToDid,
 	getPDS,
 	getDetailedProfile,
 	getClient,

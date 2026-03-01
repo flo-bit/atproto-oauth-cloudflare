@@ -7,7 +7,8 @@
       "mcp__plugin_svelte_svelte__svelte-autofixer",
       "mcp__plugin_svelte_svelte__get-documentation",
       "Bash(pnpm check:*)",
-      "Bash(pnpm env:generate-secret:*)"
+      "Bash(pnpm env:generate-secret:*)",
+      "Bash(pnpm build:agent-setup:*)"
     ]
   }
 }
