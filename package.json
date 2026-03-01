@@ -14,7 +14,8 @@
 		"lint": "prettier --check . && eslint .",
 		"env:generate-key": "npx tsx src/lib/atproto/scripts/generate-key.ts",
 		"env:generate-secret": "npx tsx src/lib/atproto/scripts/generate-secret.ts",
-		"env:setup-dev": "npx tsx src/lib/atproto/scripts/setup-dev.ts"
+		"env:setup-dev": "npx tsx src/lib/atproto/scripts/setup-dev.ts",
+		"build:agent-setup": "npx tsx scripts/build-agent-setup.ts"
 	},
 	"devDependencies": {
 		"@atcute/atproto": "^3.1.10",

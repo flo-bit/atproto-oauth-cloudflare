@@ -145,6 +145,7 @@ export async function login(handle: string) {
 	const { url } = await oauthLogin({ handle });
 	window.location.assign(url);
 
+	// Wait for navigation (prevents UI flash)
 	await new Promise((_resolve, reject) => {
 		window.addEventListener('pageshow', () => reject(new Error('user aborted the login request')), {
 			once: true
@@ -172,6 +173,7 @@ export async function logout() {
 		console.error('Error logging out:', e);
 	}
 
+	// Full reload to clear server session state
 	window.location.href = '/';
 }
 ```
@@ -196,12 +198,18 @@ import { type AppBskyActorDefs } from '@atcute/bluesky';
 export type Collection = `${string}.${string}.${string}`;
 import * as TID from '@atcute/tid';
 
+/**
+ * Parses an AT Protocol URI into its components.
+ */
 export function parseUri(uri: string) {
 	const parts = parseResourceUri(uri);
 	if (!parts.ok) return;
 	return parts.value;
 }
 
+/**
+ * Resolves a handle to a DID using DNS and HTTP methods.
+ */
 export async function resolveHandle({ handle }: { handle: Handle }) {
 	const handleResolver = new CompositeHandleResolver({
 		methods: {
@@ -221,6 +229,9 @@ const didResolver = new CompositeDidDocumentResolver({
 	}
 });
 
+/**
+ * Gets the PDS (Personal Data Server) URL for a given DID.
+ */
 export async function getPDS(did: Did) {
 	const doc = await didResolver.resolve(did as Did<'plc'> | Did<'web'>);
 	if (!doc.service) throw new Error('No PDS found');
@@ -231,6 +242,9 @@ export async function getPDS(did: Did) {
 	}
 }
 
+/**
+ * Fetches a detailed Bluesky profile for a user.
+ */
 export async function getDetailedProfile(data?: { did?: Did; client?: Client }) {
 	data ??= {};
 	data.did ??= user.did ?? undefined;
@@ -250,6 +264,9 @@ export async function getDetailedProfile(data?: { did?: Did; client?: Client }) 
 	return response.data;
 }
 
+/**
+ * Creates an AT Protocol client for a user's PDS.
+ */
 export async function getClient({ did }: { did: Did }) {
 	const pds = await getPDS(did);
 	if (!pds) throw new Error('PDS not found');
@@ -261,6 +278,9 @@ export async function getClient({ did }: { did: Did }) {
 	return client;
 }
 
+/**
+ * Lists records from a repository collection with pagination support.
+ */
 export async function listRecords({
 	did,
 	collection,
@@ -308,6 +328,9 @@ export async function listRecords({
 	return allRecords;
 }
 
+/**
+ * Fetches a single record from a repository.
+ */
 export async function getRecord({
 	did,
 	collection,
@@ -341,6 +364,9 @@ export async function getRecord({
 	return JSON.parse(JSON.stringify(record.data));
 }
 
+/**
+ * Creates or updates a record via remote function.
+ */
 export async function putRecord({
 	collection,
 	rkey = 'self',
@@ -357,6 +383,9 @@ export async function putRecord({
 	return { ok: true, data };
 }
 
+/**
+ * Deletes a record via remote function.
+ */
 export async function deleteRecord({
 	collection,
 	rkey = 'self'
@@ -371,6 +400,9 @@ export async function deleteRecord({
 	return data.ok;
 }
 
+/**
+ * Uploads a blob via remote function.
+ */
 export async function uploadBlob({ blob }: { blob: Blob }) {
 	if (!user.did) throw new Error("Can't upload blob: Not logged in");
 
@@ -378,6 +410,9 @@ export async function uploadBlob({ blob }: { blob: Blob }) {
 	return await uploadBlobRemote({ blob });
 }
 
+/**
+ * Gets metadata about a repository.
+ */
 export async function describeRepo({ client, did }: { client?: Client; did?: Did }) {
 	did ??= user.did ?? undefined;
 	if (!did) {
@@ -395,6 +430,9 @@ export async function describeRepo({ client, did }: { client?: Client; did?: Did
 	return repo.data;
 }
 
+/**
+ * Constructs a URL to fetch a blob directly from a user's PDS.
+ */
 export async function getBlobURL({
 	did,
 	blob
@@ -411,6 +449,9 @@ export async function getBlobURL({
 	return `${pds}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${blob.ref.$link}`;
 }
 
+/**
+ * Constructs a Bluesky CDN URL for an image blob.
+ */
 export function getCDNImageBlobUrl({
 	did,
 	blob
@@ -428,6 +469,9 @@ export function getCDNImageBlobUrl({
 	return `https://cdn.bsky.app/img/feed_thumbnail/plain/${did}/${blob.ref.$link}@webp`;
 }
 
+/**
+ * Searches for actors with typeahead/autocomplete functionality.
+ */
 export async function searchActorsTypeahead(
 	q: string,
 	limit: number = 10,
@@ -451,6 +495,9 @@ export async function searchActorsTypeahead(
 	return { actors: response.data.actors, q };
 }
 
+/**
+ * Return a TID based on current time
+ */
 export function createTID() {
 	return TID.now();
 }
@@ -648,6 +695,7 @@ function createStores(env?: App.Platform['env']): OAuthClientStores {
 			states: new KVStore<string, StoredState>(env.OAUTH_STATES, { expirationTtl: 600 })
 		};
 	}
+	// Fallback to in-memory stores (dev without wrangler)
 	return {
 		sessions: new MemoryStore<Did, StoredSession>(),
 		states: new MemoryStore<string, StoredState>({ ttl: 600_000 })
@@ -659,6 +707,9 @@ export function createOAuthClient(env?: App.Platform['env']): OAuthClient {
 	const stores = createStores(env);
 
 	if (dev && !env?.OAUTH_PUBLIC_URL) {
+		// Dev without tunnel: loopback public client (no keyset).
+		// Omit client_id — the library builds it automatically from redirect_uris + scope.
+		// redirect_uris must use 127.0.0.1 (not localhost).
 		return new OAuthClient({
 			metadata: {
 				redirect_uris: [`http://127.0.0.1:5183${REDIRECT_PATH}`],
@@ -669,6 +720,7 @@ export function createOAuthClient(env?: App.Platform['env']): OAuthClient {
 		});
 	}
 
+	// Confidential client (production, or dev with tunnel via OAUTH_PUBLIC_URL)
 	if (!env?.OAUTH_PUBLIC_URL) {
 		throw new Error('OAUTH_PUBLIC_URL is not set');
 	}
@@ -729,7 +781,7 @@ export const oauthLogin = command(
 
 			return { url: url.toString() };
 		} catch (e) {
-			if (e && typeof e === 'object' && 'status' in e) throw e;
+			if (e && typeof e === 'object' && 'status' in e) throw e; // re-throw SvelteKit errors
 			const message = e instanceof Error ? e.message : 'Login failed';
 			error(400, message);
 		}
@@ -763,6 +815,7 @@ import { command, getRequestEvent } from '$app/server';
 import * as v from 'valibot';
 import { permissions } from '../settings';
 
+// Validate collection format and check against allowed list from settings
 const collectionSchema = v.pipe(
 	v.string(),
 	v.regex(/^[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z0-9-]*$/),
@@ -772,6 +825,7 @@ const collectionSchema = v.pipe(
 	)
 );
 
+// AT Protocol rkey: TID, 'self', or other valid record keys (alphanumeric, dash, underscore, dot)
 const rkeySchema = v.optional(v.pipe(v.string(), v.regex(/^[a-zA-Z0-9._:~-]{1,512}$/)));
 
 export const putRecord = command(
@@ -859,6 +913,11 @@ export type SessionLocals = {
 	did: Did | null;
 };
 
+/**
+ * Restores an OAuth session from the signed `did` cookie.
+ * Returns session locals to be assigned to `event.locals`.
+ * Deletes the cookie if the session can't be restored.
+ */
 export async function restoreSession(
 	cookies: Cookies,
 	env?: App.Platform['env']
@@ -894,7 +953,13 @@ import { getDetailedProfile, describeRepo } from '../methods';
 
 const PROFILE_CACHE_TTL = 60 * 60; // 1 hour
 
+/**
+ * Loads a user's profile, with optional KV caching.
+ * Falls back to a fresh fetch if the cache KV doesn't exist or on cache miss.
+ * Returns undefined if the profile can't be loaded.
+ */
 export async function loadProfile(did: Did, profileCache?: KVNamespace) {
+	// Try cache first
 	if (profileCache) {
 		try {
 			const cached = await profileCache.get(did, 'json');
@@ -906,6 +971,7 @@ export async function loadProfile(did: Did, profileCache?: KVNamespace) {
 
 	const profile = await fetchProfile(did);
 
+	// Write to cache (fire-and-forget)
 	if (profileCache && profile) {
 		profileCache
 			.put(did, JSON.stringify(profile), { expirationTtl: PROFILE_CACHE_TTL })
@@ -981,6 +1047,7 @@ const upsertVar = (input: string, key: string, value: string): string => {
 	if (re.test(input)) {
 		const match = input.match(re);
 		const current = match ? match[0].slice(key.length + 1).trim() : '';
+		// Only overwrite if empty/placeholder
 		if (current === '' || current === "''" || current === '""' || current.includes('...')) {
 			return input.replace(re, line);
 		}
@@ -1015,6 +1082,8 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ url, platform, cookies }) => {
 	const oauth = createOAuthClient(platform?.env);
 
+	// oauth.callback() validates the state parameter (CSRF protection) and
+	// exchanges the authorization code for tokens via the token endpoint.
 	try {
 		const { session } = await oauth.callback(url.searchParams);
 
