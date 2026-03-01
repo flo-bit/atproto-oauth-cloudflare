@@ -1,9 +1,10 @@
 import * as v from 'valibot';
 import { error } from '@sveltejs/kit';
 import { command, getRequestEvent } from '$app/server';
-import { createOAuthClient } from '$lib/server/oauth';
-import { scope } from '$lib/atproto/metadata';
-import { signUpPDS } from '$lib/atproto/settings';
+import { createOAuthClient } from './oauth';
+import { getSignedCookie } from './signed-cookie';
+import { scope } from '../metadata';
+import { signUpPDS } from '../settings';
 import type { ActorIdentifier, Did } from '@atcute/lexicons';
 
 export const oauthLogin = command(
@@ -38,7 +39,7 @@ export const oauthLogin = command(
 
 export const oauthLogout = command(async () => {
 	const { cookies, platform } = getRequestEvent();
-	const did = cookies.get('did') as Did | undefined;
+	const did = getSignedCookie(cookies, 'did') as Did | null;
 
 	if (did) {
 		try {

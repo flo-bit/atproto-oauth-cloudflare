@@ -1,11 +1,20 @@
 <script lang="ts">
 	import '../app.css';
-
-	import LoginModal from '$lib/atproto/UI/LoginModal.svelte';
+	import { AtprotoLoginModal } from '@foxui/social';
+	import { login, signup } from '$lib/atproto';
 
 	let { children } = $props();
 </script>
 
 {@render children()}
 
-<LoginModal />
+<AtprotoLoginModal
+	login={async (handle) => {
+		await login(handle);
+		return true;
+	}}
+	signup={async () => {
+		signup();
+		return true;
+	}}
+/>

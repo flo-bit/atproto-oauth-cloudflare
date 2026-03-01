@@ -1,163 +1,144 @@
-# svelte atproto cloudflare workers oauth demo
+# svelte atproto cloudflare workers oauth
 
-A SvelteKit app that authenticates users via AT Protocol OAuth on Cloudflare Workers. Uses server-side OAuth with `@atcute/oauth-node-client`, Cloudflare KV for session/state storage, and SvelteKit remote functions for type-safe client-server communication.
+SvelteKit + AT Protocol OAuth on Cloudflare Workers. Server-side OAuth with `@atcute/oauth-node-client`, Cloudflare KV for session/state storage, and SvelteKit remote functions for type-safe client-server communication.
 
-## Prerequisites
-
-- [Node.js](https://nodejs.org/) (v18+)
-- [pnpm](https://pnpm.io/)
-- A [Cloudflare account](https://dash.cloudflare.com/sign-up)
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) (`pnpm add -g wrangler`)
-- A domain pointed at Cloudflare (for production)
-
-## Local Development
-
-### 1. Install dependencies
+## Quick Start
 
 ```sh
 pnpm install
-```
-
-### 2. Run the dev server
-
-```sh
 pnpm dev
 ```
 
-In dev mode, the app uses a **loopback OAuth client** (public, no keys needed) with in-memory stores. It binds to `127.0.0.1:5183` — this is required for AT Protocol loopback OAuth.
+In dev mode the app uses a **loopback OAuth client** (no keys, in-memory storage). It binds to `127.0.0.1:5183` — required for AT Protocol loopback OAuth.
 
-No Cloudflare setup is needed for local development.
+### Dev with tunnel (confidential client)
+
+To test the full production flow locally with a tunnel like [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/):
+
+```sh
+pnpm env:setup-dev                              # generates secrets in .env
+# add OAUTH_PUBLIC_URL=https://your-tunnel.trycloudflare.com to .env
+cloudflared tunnel --url http://localhost:5183   # start tunnel
+pnpm dev                                        # start dev server
+```
 
 ## Production Deployment
 
 ### 1. Create KV namespaces
-
-Create two KV namespaces for storing OAuth sessions and states:
 
 ```sh
 npx wrangler kv namespace create OAUTH_SESSIONS
 npx wrangler kv namespace create OAUTH_STATES
 ```
 
-Each command outputs an ID. Update `wrangler.toml` with the actual IDs:
+Add the IDs to `wrangler.jsonc`:
 
-```toml
-[[kv_namespaces]]
-binding = "OAUTH_SESSIONS"
-id = "<your-sessions-namespace-id>"
-
-[[kv_namespaces]]
-binding = "OAUTH_STATES"
-id = "<your-states-namespace-id>"
+```jsonc
+"kv_namespaces": [
+  { "binding": "OAUTH_SESSIONS", "id": "<your-id>" },
+  { "binding": "OAUTH_STATES", "id": "<your-id>" }
+]
 ```
 
-### 2. Generate a client assertion key
+### 2. Set your public URL
 
-AT Protocol OAuth requires a confidential client with a private key for production. Generate one:
+In `wrangler.jsonc`:
 
-```sh
-pnpm generate-key
-```
-
-This outputs a JSON key. Add it as a Cloudflare Workers secret:
-
-```sh
-npx wrangler secret put CLIENT_ASSERTION_KEY
-```
-
-When prompted, paste the JSON key value.
-
-### 3. Configure your domain
-
-Edit `src/lib/atproto/settings.ts` and set `SITE` to your production domain:
-
-```ts
-export const SITE = dev ? 'http://localhost:5183' : 'https://your-domain.com';
-```
-
-### 4. Serve the OAuth client metadata
-
-AT Protocol OAuth requires a client metadata JSON to be publicly accessible at `https://your-domain.com/oauth-client-metadata.json`. This is referenced as the `client_id`.
-
-Create `static/oauth-client-metadata.json` with your domain info, or serve it via a route. The metadata is constructed in `src/lib/atproto/metadata.ts` — the required fields are:
-
-```json
-{
-  "client_id": "https://your-domain.com/oauth-client-metadata.json",
-  "redirect_uris": ["https://your-domain.com/oauth/callback"],
-  "scope": "atproto repo:xyz.statusphere.status",
-  "jwks_uri": "https://your-domain.com/oauth/jwks.json"
+```jsonc
+"vars": {
+  "OAUTH_PUBLIC_URL": "https://your-domain.com"
 }
 ```
 
-The scope is auto-generated from the `permissions` config in `src/lib/atproto/settings.ts`.
+### 3. Generate and set secrets
 
-### 5. Configure permissions
+```sh
+pnpm env:generate-key
+npx wrangler secret put CLIENT_ASSERTION_KEY    # paste generated key
 
-Edit the `permissions` object in `src/lib/atproto/settings.ts` to control what your app can do:
+pnpm env:generate-secret
+npx wrangler secret put COOKIE_SECRET           # paste generated secret
+```
+
+### 4. Configure permissions
+
+Edit `src/lib/atproto/settings.ts`:
 
 ```ts
 export const permissions = {
-  // collections your app can create/delete/update records in
-  collections: ['xyz.statusphere.status'],
-
-  // authenticated proxied RPC requests (e.g. to appview services)
-  rpc: {},
-
-  // blob types your app can upload
-  blobs: []
+  collections: ['xyz.statusphere.status'],  // collections your app can read/write
+  rpc: {},                                   // authenticated RPC requests
+  blobs: []                                  // blob types your app can upload
 } as const;
 ```
 
-### 6. Deploy
+The OAuth scope is auto-generated from this config.
 
-```sh
-pnpm build
-npx wrangler deploy
-```
-
-Or deploy directly:
+### 5. Deploy
 
 ```sh
 npx wrangler deploy
 ```
 
-### 7. Set up a custom domain (recommended)
+Set up a custom domain in the Cloudflare dashboard (Worker > Settings > Domains & Routes) so the OAuth client metadata URL matches your `client_id`.
 
-In the Cloudflare dashboard, go to your Worker > Settings > Domains & Routes and add your custom domain. This is needed so the OAuth client metadata URL matches your `client_id`.
+## Scripts
+
+| Script | Description |
+|---|---|
+| `pnpm dev` | Start dev server |
+| `pnpm build` | Build for production |
+| `pnpm check` | Run svelte-check |
+| `pnpm env:generate-key` | Generate client assertion key |
+| `pnpm env:generate-secret` | Generate cookie signing secret |
+| `pnpm env:setup-dev` | Generate both and write to `.env` |
+
+## Adding to an existing project
+
+**With an AI agent** — paste this into Claude Code (or similar) in your existing repo:
+
+```
+add atproto oauth to this project https://raw.githubusercontent.com/flo-bit/svelte-atproto-oauth-cloudflare-workers/main/AGENT_SETUP.md
+```
+
+The [agent prompt](AGENT_SETUP.md) will ask you a few questions and set everything up.
+
+**Manually** — see [SETUP.md](SETUP.md) for a step-by-step guide.
 
 ## Project Structure
 
 ```
-src/
-├── lib/
-│   ├── atproto/
-│   │   ├── auth.svelte.ts      # Client-side auth state (derived from server data)
-│   │   ├── metadata.ts         # OAuth client metadata construction
-│   │   ├── methods.ts          # AT Protocol helper methods
-│   │   ├── oauth.remote.ts     # Remote functions: login, logout
-│   │   ├── repo.remote.ts      # Remote functions: putRecord, deleteRecord, uploadBlob
-│   │   └── settings.ts         # Site URL, permissions, constants
-│   └── server/
-│       ├── oauth.ts            # OAuthClient factory (dev vs prod)
-│       └── kv-store.ts         # Cloudflare KV-backed Store implementation
-├── routes/
-│   ├── oauth/
-│   │   ├── callback/           # OAuth callback handler (GET redirect)
-│   │   └── jwks.json/          # Public JWKS endpoint
-│   ├── +layout.server.ts       # Loads user profile from session
-│   ├── +layout.svelte
-│   ├── +page.server.ts         # Loads page-specific data
-│   └── +page.svelte
-└── hooks.server.ts             # Session restoration from cookie
+src/lib/atproto/
+├── auth.svelte.ts          # Client-side auth state & login/logout/signup
+├── index.ts                # Public exports
+├── metadata.ts             # OAuth scope from permissions
+├── methods.ts              # AT Protocol helpers (read/write/resolve)
+├── settings.ts             # Permissions config, constants
+├── server/
+│   ├── oauth.ts            # OAuthClient factory (loopback vs confidential)
+│   ├── oauth.remote.ts     # Remote functions: login, logout
+│   ├── repo.remote.ts      # Remote functions: putRecord, deleteRecord, uploadBlob
+│   ├── session.ts          # Session restoration from signed cookie
+│   ├── profile.ts          # Profile loading with optional KV cache
+│   ├── kv-store.ts         # Cloudflare KV-backed Store
+│   └── signed-cookie.ts    # HMAC-signed cookie helpers
+└── scripts/
+    ├── generate-key.ts
+    ├── generate-secret.ts
+    └── setup-dev.ts
+
+src/routes/(oauth)/
+├── oauth/callback/+server.ts
+├── oauth/jwks.json/+server.ts
+└── oauth-client-metadata.json/+server.ts
 ```
 
 ## How It Works
 
-- **Authentication**: Server-side OAuth flow via `@atcute/oauth-node-client`. Sessions are stored in Cloudflare KV and identified by a `did` cookie.
-- **Remote functions**: Write operations (putRecord, deleteRecord, uploadBlob) and auth actions (login, logout) use SvelteKit remote functions — type-safe server calls without manual API routes.
-- **Dev mode**: Uses AT Protocol's loopback client (no keys, in-memory storage).
-- **Prod mode**: Uses a confidential client with `private_key_jwt` assertion and KV-backed stores.
+- **Auth**: Server-side OAuth via `@atcute/oauth-node-client`. Sessions stored in KV, identified by HMAC-signed `did` cookie.
+- **Remote functions**: Write operations and auth actions use SvelteKit remote functions — type-safe server calls without manual API routes.
+- **Dev mode**: Loopback client by default. Set `OAUTH_PUBLIC_URL` in `.env` for confidential client via tunnel.
+- **Prod mode**: Confidential client with `private_key_jwt`, KV stores, `OAUTH_PUBLIC_URL` from `wrangler.jsonc`.
 
 ## License
 

@@ -1,16 +1,25 @@
 import { error } from '@sveltejs/kit';
 import { command, getRequestEvent } from '$app/server';
 import * as v from 'valibot';
+import { permissions } from '../settings';
 
+// Validate collection format and check against allowed list from settings
 const collectionSchema = v.pipe(
 	v.string(),
-	v.regex(/^[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z0-9-]*$/)
+	v.regex(/^[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z0-9-]*$/),
+	v.check(
+		(c) => permissions.collections.some((allowed) => c === allowed || allowed.startsWith(c + '?')),
+		'Collection not in allowed list'
+	)
 );
+
+// AT Protocol rkey: TID, 'self', or other valid record keys (alphanumeric, dash, underscore, dot)
+const rkeySchema = v.optional(v.pipe(v.string(), v.regex(/^[a-zA-Z0-9._:~-]{1,512}$/)));
 
 export const putRecord = command(
 	v.object({
 		collection: collectionSchema,
-		rkey: v.optional(v.string()),
+		rkey: rkeySchema,
 		record: v.record(v.string(), v.unknown())
 	}),
 	async (input) => {
@@ -33,7 +42,7 @@ export const putRecord = command(
 export const deleteRecord = command(
 	v.object({
 		collection: collectionSchema,
-		rkey: v.optional(v.string())
+		rkey: rkeySchema
 	}),
 	async (input) => {
 		const { locals } = getRequestEvent();
@@ -64,7 +73,7 @@ export const uploadBlob = command(
 			input: input.blob
 		});
 
-		if (!response?.ok) error(500, 'Upload failed');
+		if (!response.ok) error(500, 'Upload failed');
 
 		return response.data.blob as {
 			$type: 'blob';

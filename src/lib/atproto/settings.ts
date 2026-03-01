@@ -1,9 +1,5 @@
 import { dev } from '$app/environment';
 
-export const SITE = dev
-	? 'http://localhost:5183'
-	: 'https://svelte-atproto-oauth-cloudflare-workers.flobit-dev.workers.dev';
-
 type Permissions = {
 	collections: readonly string[];
 	rpc: Record<string, string | string[]>;
@@ -26,7 +22,7 @@ type ExtractCollectionBase<T extends string> = T extends `${infer Base}?${string
 
 export type AllowedCollection = ExtractCollectionBase<(typeof permissions.collections)[number]>;
 
-// which PDS to use for signup
+// which PDS to use for signup (change to your preferred PDS)
 const devPDS = 'https://pds.rip/';
 const prodPDS = 'https://selfhosted.social/';
 export const signUpPDS = dev ? devPDS : prodPDS;

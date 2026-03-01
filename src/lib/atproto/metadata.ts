@@ -1,37 +1,24 @@
-import { permissions, REDIRECT_PATH, SITE } from './settings';
+import { permissions } from './settings';
 
 function constructScope() {
-	const repos = permissions.collections.map((collection) => 'repo:' + collection).join(' ');
+	const parts: string[] = ['atproto'];
 
-	let rpcs = '';
+	for (const collection of permissions.collections) {
+		parts.push('repo:' + collection);
+	}
+
 	for (const [key, value] of Object.entries(permissions.rpc ?? {})) {
-		if (Array.isArray(value)) {
-			rpcs += value.map((lxm) => 'rpc?lxm=' + lxm + '&aud=' + key).join(' ');
-		} else {
-			rpcs += 'rpc?lxm=' + value + '&aud=' + key;
+		const lxms = Array.isArray(value) ? value : [value];
+		for (const lxm of lxms) {
+			parts.push('rpc?lxm=' + lxm + '&aud=' + key);
 		}
 	}
 
-	let blobScope: string | undefined = undefined;
-	if (Array.isArray(permissions.blobs) && permissions.blobs.length > 0) {
-		blobScope = 'blob?' + permissions.blobs.map((b) => 'accept=' + b).join('&');
-	} else if (permissions.blobs && permissions.blobs.length > 0) {
-		blobScope = 'blob:' + permissions.blobs;
+	if (permissions.blobs.length > 0) {
+		parts.push('blob?' + permissions.blobs.map((b) => 'accept=' + b).join('&'));
 	}
 
-	const scope = ['atproto', repos, rpcs, blobScope].filter((v) => v?.trim()).join(' ');
-	return scope;
+	return parts.join(' ');
 }
 
 export const scope = constructScope();
-
-export function constructMetadata() {
-	return {
-		client_id: SITE + '/oauth-client-metadata.json',
-		redirect_uris: [SITE + REDIRECT_PATH] as [string],
-		scope,
-		jwks_uri: SITE + '/oauth/jwks.json'
-	};
-}
-
-export const metadata = constructMetadata();

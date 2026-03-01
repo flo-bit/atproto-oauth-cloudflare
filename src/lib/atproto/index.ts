@@ -1,5 +1,4 @@
 export { user, login, signup, logout } from './auth.svelte';
-export { metadata } from './metadata';
 
 export {
 	parseUri,
@@ -15,5 +14,6 @@ export {
 	describeRepo,
 	getBlobURL,
 	getCDNImageBlobUrl,
-	searchActorsTypeahead
+	searchActorsTypeahead,
+	createTID
 } from './methods';

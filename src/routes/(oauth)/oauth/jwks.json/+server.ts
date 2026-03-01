@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { createOAuthClient } from '$lib/server/oauth';
+import { createOAuthClient } from '$lib/atproto/server/oauth';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ platform }) => {

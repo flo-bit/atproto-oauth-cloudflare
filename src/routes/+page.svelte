@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { flip } from 'svelte/animate';
+	import { scale } from 'svelte/transition';
 	import { user, logout } from '$lib/atproto';
-	import Avatar from '$lib/atproto/UI/Avatar.svelte';
-	import Button from '$lib/atproto/UI/Button.svelte';
-	import { loginModalState } from '$lib/atproto/UI/LoginModal.svelte';
-	import { createTID } from '$lib/atproto/methods';
-	import { putRecord } from '$lib/atproto/repo.remote';
+	import { Button, Avatar } from '@foxui/core';
+	import { atProtoLoginModalState, EmojiPicker } from '@foxui/social';
+	import { RelativeTime } from '@foxui/time';
 
-	let emojis = ['😅', '🫶', '🤗', '🙃', '😊', '🤔'];
+	import { createTID } from '$lib/atproto/methods';
+	import { putRecord } from '$lib/atproto/server/repo.remote';
 
 	let { data } = $props();
 </script>
@@ -23,7 +24,7 @@
 
 	{#if !user.isLoggedIn}
 		<div class="mt-8 text-sm">not logged in</div>
-		<Button class="mt-4" onclick={() => loginModalState.show()}>Login</Button>
+		<Button class="mt-4" onclick={() => atProtoLoginModalState.show()}>Login</Button>
 	{/if}
 
 	{#if user.isLoggedIn}
@@ -36,32 +37,36 @@
 
 		<div class="my-4 text-sm">
 			Statusphere test:
-			<div class="mt-2 flex flex-wrap gap-2">
-				{#each emojis as emoji (emoji)}
-					<button
-						class="bg-base-100 dark:bg-base-950 cursor-pointer rounded-xl p-1 px-2"
-						onclick={async () => {
-							await putRecord({
-								rkey: createTID(),
-								collection: 'xyz.statusphere.status',
-								record: {
-									status: emoji,
-									createdAt: new Date()
-								}
-							});
-							await invalidateAll();
-						}}>{emoji}</button
-					>
-				{/each}
-			</div>
-		{#if data.statuses.length > 0}
-			<div class="mt-4 text-sm">Recent statuses:</div>
-			<div class="mt-2 flex flex-wrap gap-1">
-				{#each data.statuses as status (status.rkey)}
-					<span class="bg-base-100 dark:bg-base-950 rounded-xl p-1 px-2" title={new Date(status.createdAt).toLocaleString()}>{status.status}</span>
-				{/each}
-			</div>
-		{/if}
+			<EmojiPicker
+				onpicked={async (emoji) => {
+					await putRecord({
+						rkey: createTID(),
+						collection: 'xyz.statusphere.status',
+						record: {
+							status: emoji.unicode,
+							createdAt: new Date()
+						}
+					});
+					await invalidateAll();
+				}}
+			/>
+			{#if data.statuses.length > 0}
+				<div class="mt-4 text-sm">Recent statuses:</div>
+				<ul class="mt-2">
+					{#each data.statuses as status, i (status.rkey)}
+						<li class="flex items-center gap-2 py-1" animate:flip={{ duration: 300 }}>
+							{#if i === 0}
+								<span class="text-2xl" in:scale={{ duration: 300 }}>{status.status}</span>
+							{:else}
+								<span class="text-2xl">{status.status}</span>
+							{/if}
+							<span class="text-base-400 dark:text-base-500 text-sm">
+								<RelativeTime date={new Date(status.createdAt)} locale="en-US" />
+							</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</div>
 
 		<Button class="mt-4" onclick={() => logout()}>Sign Out</Button>

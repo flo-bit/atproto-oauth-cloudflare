@@ -5,7 +5,9 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:github.com)",
       "mcp__plugin_svelte_svelte__svelte-autofixer",
-      "mcp__plugin_svelte_svelte__get-documentation"
+      "mcp__plugin_svelte_svelte__get-documentation",
+      "Bash(pnpm check:*)",
+      "Bash(pnpm env:generate-secret:*)"
     ]
   }
 }

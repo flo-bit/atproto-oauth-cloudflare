@@ -18,8 +18,8 @@ import {
 	WellKnownHandleResolver
 } from '@atcute/identity-resolver';
 import { KVStore } from './kv-store';
-import { DOH_RESOLVER, REDIRECT_PATH, SITE } from '$lib/atproto/settings';
-import { scope } from '$lib/atproto/metadata';
+import { DOH_RESOLVER, REDIRECT_PATH } from '../settings';
+import { scope } from '../metadata';
 import { dev } from '$app/environment';
 
 function createActorResolver() {
@@ -57,8 +57,8 @@ export function createOAuthClient(env?: App.Platform['env']): OAuthClient {
 	const actorResolver = createActorResolver();
 	const stores = createStores(env);
 
-	if (dev) {
-		// In development, use loopback client (public, no keyset).
+	if (dev && !env?.OAUTH_PUBLIC_URL) {
+		// Dev without tunnel: loopback public client (no keyset).
 		// Omit client_id — the library builds it automatically from redirect_uris + scope.
 		// redirect_uris must use 127.0.0.1 (not localhost).
 		return new OAuthClient({
@@ -71,18 +71,22 @@ export function createOAuthClient(env?: App.Platform['env']): OAuthClient {
 		});
 	}
 
-	// In production, use confidential client with keyset
-	if (!env?.CLIENT_ASSERTION_KEY) {
-		throw new Error('CLIENT_ASSERTION_KEY secret is not set. Run: pnpm generate-key && npx wrangler secret put CLIENT_ASSERTION_KEY');
+	// Confidential client (production, or dev with tunnel via OAUTH_PUBLIC_URL)
+	if (!env?.OAUTH_PUBLIC_URL) {
+		throw new Error('OAUTH_PUBLIC_URL is not set');
 	}
+	if (!env.CLIENT_ASSERTION_KEY) {
+		throw new Error('CLIENT_ASSERTION_KEY secret is not set. Run: pnpm env:generate-key');
+	}
+	const site = env.OAUTH_PUBLIC_URL;
 	const key: ClientAssertionPrivateJwk = JSON.parse(env.CLIENT_ASSERTION_KEY);
 
 	return new OAuthClient({
 		metadata: {
-			client_id: SITE + '/oauth-client-metadata.json',
-			redirect_uris: [SITE + REDIRECT_PATH],
+			client_id: site + '/oauth-client-metadata.json',
+			redirect_uris: [site + REDIRECT_PATH],
 			scope,
-			jwks_uri: SITE + '/oauth/jwks.json'
+			jwks_uri: site + '/oauth/jwks.json'
 		},
 		keyset: [key],
 		actorResolver,

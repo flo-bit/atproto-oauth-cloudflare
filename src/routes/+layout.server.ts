@@ -1,25 +1,12 @@
 import type { LayoutServerLoad } from './$types';
-import { getDetailedProfile, describeRepo } from '$lib/atproto/methods';
+import { loadProfile } from '$lib/atproto/server/profile';
 
-export const load: LayoutServerLoad = async ({ locals }) => {
+export const load: LayoutServerLoad = async ({ locals, platform }) => {
 	if (!locals.did || !locals.client) {
-		return { did: undefined, profile: undefined };
+		return { did: null, profile: null };
 	}
 
-	let profile;
-	try {
-		profile = await getDetailedProfile({ did: locals.did });
-
-		if (!profile || profile.handle === 'handle.invalid') {
-			const repo = await describeRepo({ did: locals.did });
-			profile = {
-				did: locals.did,
-				handle: repo?.handle || 'handle.invalid'
-			};
-		}
-	} catch (e) {
-		console.error('Failed to load profile:', e);
-	}
+	const profile = await loadProfile(locals.did, platform?.env?.PROFILE_CACHE);
 
 	return {
 		did: locals.did,

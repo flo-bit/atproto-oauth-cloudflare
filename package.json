@@ -12,7 +12,9 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
-		"generate-key": "npx tsx scripts/generate-key.ts"
+		"env:generate-key": "npx tsx src/lib/atproto/scripts/generate-key.ts",
+		"env:generate-secret": "npx tsx src/lib/atproto/scripts/generate-secret.ts",
+		"env:setup-dev": "npx tsx src/lib/atproto/scripts/setup-dev.ts"
 	},
 	"devDependencies": {
 		"@atcute/atproto": "^3.1.10",
@@ -49,6 +51,9 @@
 	},
 	"license": "MIT",
 	"dependencies": {
+		"@foxui/core": "^0.5.1",
+		"@foxui/social": "^0.5.1",
+		"@foxui/time": "^0.5.1",
 		"valibot": "^1.2.0"
 	}
 }

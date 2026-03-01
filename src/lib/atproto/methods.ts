@@ -1,6 +1,6 @@
 import { parseResourceUri, type Did, type Handle } from '@atcute/lexicons';
 import { user } from './auth.svelte';
-import type { AllowedCollection } from './settings';
+import { DOH_RESOLVER, type AllowedCollection } from './settings';
 import {
 	CompositeDidDocumentResolver,
 	CompositeHandleResolver,
@@ -30,7 +30,7 @@ export function parseUri(uri: string) {
 export async function resolveHandle({ handle }: { handle: Handle }) {
 	const handleResolver = new CompositeHandleResolver({
 		methods: {
-			dns: new DohJsonHandleResolver({ dohUrl: 'https://mozilla.cloudflare-dns.com/dns-query' }),
+			dns: new DohJsonHandleResolver({ dohUrl: DOH_RESOLVER }),
 			http: new WellKnownHandleResolver()
 		}
 	});
@@ -64,7 +64,7 @@ export async function getPDS(did: Did) {
  */
 export async function getDetailedProfile(data?: { did?: Did; client?: Client }) {
 	data ??= {};
-	data.did ??= user.did;
+	data.did ??= user.did ?? undefined;
 
 	if (!data.did) throw new Error('Error getting detailed profile: no did');
 
@@ -111,12 +111,12 @@ export async function listRecords({
 	limit?: number;
 	client?: Client;
 }) {
-	did ??= user.did;
+	did ??= user.did ?? undefined;
 	if (!collection) {
 		throw new Error('Missing parameters for listRecords');
 	}
 	if (!did) {
-		throw new Error('Missing did for getRecord');
+		throw new Error('Missing did for listRecords');
 	}
 
 	client ??= await getClient({ did });
@@ -159,7 +159,7 @@ export async function getRecord({
 	rkey?: string;
 	client?: Client;
 }) {
-	did ??= user.did;
+	did ??= user.did ?? undefined;
 
 	if (!collection) {
 		throw new Error('Missing parameters for getRecord');
@@ -195,7 +195,7 @@ export async function putRecord({
 }) {
 	if (!user.did) throw new Error('Not logged in');
 
-	const { putRecord: putRecordRemote } = await import('./repo.remote');
+	const { putRecord: putRecordRemote } = await import('./server/repo.remote');
 	const data = await putRecordRemote({ collection, rkey, record });
 	return { ok: true, data };
 }
@@ -212,7 +212,7 @@ export async function deleteRecord({
 }) {
 	if (!user.did) throw new Error('Not logged in');
 
-	const { deleteRecord: deleteRecordRemote } = await import('./repo.remote');
+	const { deleteRecord: deleteRecordRemote } = await import('./server/repo.remote');
 	const data = await deleteRecordRemote({ collection, rkey });
 	return data.ok;
 }
@@ -223,7 +223,7 @@ export async function deleteRecord({
 export async function uploadBlob({ blob }: { blob: Blob }) {
 	if (!user.did) throw new Error("Can't upload blob: Not logged in");
 
-	const { uploadBlob: uploadBlobRemote } = await import('./repo.remote');
+	const { uploadBlob: uploadBlobRemote } = await import('./server/repo.remote');
 	return await uploadBlobRemote({ blob });
 }
 
@@ -231,7 +231,7 @@ export async function uploadBlob({ blob }: { blob: Blob }) {
  * Gets metadata about a repository.
  */
 export async function describeRepo({ client, did }: { client?: Client; did?: Did }) {
-	did ??= user.did;
+	did ??= user.did ?? undefined;
 	if (!did) {
 		throw new Error('Error describeRepo: No did');
 	}
@@ -281,7 +281,7 @@ export function getCDNImageBlobUrl({
 		};
 	};
 }) {
-	did ??= user.did;
+	did ??= user.did ?? undefined;
 
 	return `https://cdn.bsky.app/img/feed_thumbnail/plain/${did}/${blob.ref.$link}@webp`;
 }
