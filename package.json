@@ -15,7 +15,6 @@
 		"env:generate-key": "npx tsx src/lib/atproto/scripts/generate-key.ts",
 		"env:generate-secret": "npx tsx src/lib/atproto/scripts/generate-secret.ts",
 		"env:setup-dev": "npx tsx src/lib/atproto/scripts/setup-dev.ts",
-		"build:agent-setup": "npx tsx scripts/build-agent-setup.ts",
 		"tunnel": "cloudflared tunnel --url http://localhost:5183"
 	},
 	"devDependencies": {
