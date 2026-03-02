@@ -2,12 +2,16 @@ import { dev } from '$app/environment';
 import { scope } from '@atcute/oauth-node-client';
 
 // writable collections
-export const collections = ['xyz.statusphere.status'] as const;
+export const collections = ['xyz.statusphere.status', 'social.atmo.test.blob'] as const;
 
 export type AllowedCollection = (typeof collections)[number];
 
 // OAuth scope — add scope.blob(), scope.rpc(), etc. as needed
-export const scopes = ['atproto', scope.repo({ collection: [...collections] })];
+export const scopes = [
+	'atproto',
+	scope.repo({ collection: [...collections] }),
+	scope.blob({ accept: ['image/*'] })
+];
 
 // set to false to disable signup
 export const ALLOW_SIGNUP = true;

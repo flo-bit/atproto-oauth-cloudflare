@@ -228,12 +228,16 @@ export async function deleteRecord({
 
 /**
  * Uploads a blob via remote function.
+ * Converts the Blob to a byte array for serialization across the remote boundary.
  */
 export async function uploadBlob({ blob }: { blob: Blob }) {
 	if (!user.did) throw new Error("Can't upload blob: Not logged in");
 
+	const arrayBuffer = await blob.arrayBuffer();
+	const bytes = Array.from(new Uint8Array(arrayBuffer));
+
 	const { uploadBlob: uploadBlobRemote } = await import('./server/repo.remote');
-	return await uploadBlobRemote({ blob });
+	return await uploadBlobRemote({ bytes, mimeType: blob.type || 'application/octet-stream' });
 }
 
 /**

@@ -59,15 +59,18 @@ export const deleteRecord = command(
 
 export const uploadBlob = command(
 	v.object({
-		blob: v.instance(Blob)
+		bytes: v.array(v.number()),
+		mimeType: v.string()
 	}),
 	async (input) => {
 		const { locals } = getRequestEvent();
 		if (!locals.client || !locals.did) error(401, 'Not authenticated');
 
+		const blob = new Blob([new Uint8Array(input.bytes)], { type: input.mimeType });
+
 		const response = await locals.client.post('com.atproto.repo.uploadBlob', {
 			params: { repo: locals.did },
-			input: input.blob
+			input: blob
 		});
 
 		if (!response.ok) error(500, 'Upload failed');
