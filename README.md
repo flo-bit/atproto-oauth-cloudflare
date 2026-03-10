@@ -28,7 +28,7 @@ See [GETTING_STARTED.md](GETTING_STARTED.md) for production deployment, tunnel s
 **With an AI agent** — paste this into Claude Code (or similar) in your existing repo:
 
 ```
-add atproto oauth to this project https://raw.githubusercontent.com/flo-bit/atproto-oauth-cloudflare/main/AGENT_SETUP.md
+add atproto oauth to this project https://raw.githubusercontent.com/flo-bit/svelte-cloudflare-statusphere/main/AGENT_SETUP.md
 ```
 
 The [agent prompt](AGENT_SETUP.md) asks a few questions and sets everything up.

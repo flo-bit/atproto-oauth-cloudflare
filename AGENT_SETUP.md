@@ -78,7 +78,7 @@ pnpm add @foxui/social @foxui/core
 Run this bash script to download all required files into the project:
 
 ```sh
-BASE_URL="https://raw.githubusercontent.com/flo-bit/atproto-oauth-cloudflare/main"
+BASE_URL="https://raw.githubusercontent.com/flo-bit/svelte-cloudflare-statusphere/main"
 
 FILES=(
   "src/lib/atproto/auth.svelte.ts"

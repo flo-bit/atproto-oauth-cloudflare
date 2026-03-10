@@ -1,5 +1,5 @@
 {
-	"name": "svelte-atproto-oauth-cloudflare-workers",
+	"name": "svelte-cloudflare-statusphere",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
